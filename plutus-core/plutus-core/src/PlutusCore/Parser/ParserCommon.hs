@@ -23,6 +23,7 @@ import PlutusCore.Core.Type
 import PlutusCore.Error
 import PlutusCore.Name
 import PlutusCore.Quote
+
 newtype ParserState = ParserState { identifiers :: M.Map T.Text Unique }
     deriving stock (Show)
 
@@ -49,15 +50,18 @@ intern n = do
             put $ ParserState identifiers'
             return fresh
 
-parse :: (AsParserErrorBundle e, MonadError e m) =>
+parse :: (AsParserErrorBundle e, MonadError e m, MonadQuote m) =>
     Parser a -> String -> T.Text -> m a
-parse p file str =
-    case runQuote $ evalStateT (runParserT p file str) initial of
-        Left peb -> throwing _ParserErrorBundle (ParseErrorB peb)
-        Right a  -> pure a
+parse p file str = do
+    let res = fmap toParserErrorBundle (evalStateT (runParserT p file str) initial)
+    liftQuote res
+
+toParserErrorBundle :: Either (ParseErrorBundle T.Text ParserError) a -> Either ParserErrorBundle a
+toParserErrorBundle (Left err) = Left $ ParseErrorB err
+toParserErrorBundle (Right a)  = Right a
 
 -- | Generic parser function.
-parseGen :: (AsParserErrorBundle e, MonadError e m) => Parser a -> ByteString -> m a
+parseGen :: (AsParserErrorBundle e, MonadError e m, MonadQuote m) => Parser a -> ByteString -> m a
 parseGen stuff bs = parse stuff "test" $ (T.pack . unpackChars) bs
 
 -- | Space consumer.

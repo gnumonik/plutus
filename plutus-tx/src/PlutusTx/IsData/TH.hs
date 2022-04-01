@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP             #-}
 {-# LANGUAGE TemplateHaskell #-}
-module PlutusTx.IsData.TH (unstableMakeIsData, makeIsDataIndexed) where
+module PlutusTx.IsData.TH (unstableMakeIsData, makeIsDataIndexed, unstableMakeIsData', makeIsDataIndexed') where
 
 import Data.Foldable
 import Data.Traversable
@@ -123,6 +123,35 @@ defaultIndex :: TH.Name -> TH.Q [(TH.Name, Int)]
 defaultIndex name = do
     info <- TH.reifyDatatype name
     pure $ zip (TH.constructorName <$> TH.datatypeCons info) [0..]
+
+makeHasConstrIndex :: TH.Name -> [(TH.Name, Int)] -> TH.Q [TH.Dec]
+makeHasConstrIndex name indices =
+  pure [TH.InstanceD Nothing [] (TH.ConT . TH.mkName $ "HasConstrIndices " <> TH.nameBase name) [getIndices]]
+ where
+   getIndices :: TH.Dec
+   getIndices = TH.FunD (TH.mkName "getConstrIndices") [methodClause]
+
+   methodClause :: TH.Clause
+   methodClause = TH.Clause [] methodBody []
+
+   methodBody :: TH.Body
+   methodBody = TH.NormalB indicesE
+
+   indicesE :: TH.Exp
+   indicesE = TH.ListE $ map (\(n,i) -> TH.TupE [Just (TH.LitE . TH.IntegerL . fromIntegral $ i), Just (TH.LitE . TH.StringL $ TH.nameBase n)]) indices
+
+unstableMakeIsData' :: TH.Name -> TH.Q [TH.Dec]
+unstableMakeIsData' name = do
+  indices                  <- defaultIndex name
+  hasConstrIndicesInstance <- makeHasConstrIndex name indices
+  decs                     <- unstableMakeIsData name
+  pure (hasConstrIndicesInstance <> decs)
+
+makeIsDataIndexed' :: TH.Name -> [(TH.Name,Int)] -> TH.Q [TH.Dec]
+makeIsDataIndexed' name indices = do
+  hasConstrIndicesInstance <- makeHasConstrIndex name indices
+  decs                     <- makeIsDataIndexed name indices
+  pure (hasConstrIndicesInstance <> decs)
 
 -- | Generate a 'FromData' and a 'ToData' instance for a type. This may not be stable in the face of constructor additions,
 -- renamings, etc. Use 'makeIsDataIndexed' if you need stability.

@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE KindSignatures       #-}
 {-# LANGUAGE OverloadedStrings    #-}
@@ -8,7 +9,7 @@
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
 module PlutusTx.IsData.Class where
 
-import Prelude qualified as Haskell (Int, error)
+import Prelude qualified as Haskell (Int, String, error)
 
 import PlutusCore.Data qualified as PLC
 import PlutusTx.Base
@@ -28,6 +29,9 @@ import GHC.TypeLits (ErrorMessage (..), TypeError)
 
 
 {- HLINT ignore -}
+
+class HasConstrIndices (a :: Type)  where
+  getConstrIndices :: [(Haskell.Int,Haskell.String)]
 
 -- | A typeclass for types that can be converted to and from 'BuiltinData'.
 class ToData (a :: Type) where
